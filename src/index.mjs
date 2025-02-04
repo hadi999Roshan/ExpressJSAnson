@@ -12,14 +12,40 @@ const mockUsers = [
   { id: 0, username: "teo", displayName: "Teo" },
   { id: 1, username: "cane", displayName: "Cane" },
   { id: 2, username: "amenadiel", displayName: "Amenadiel" },
+  { id: 3, username: "chloe", displayName: "Chloe" },
+  { id: 4, username: "daniel", displayName: "Daniel" },
+  { id: 5, username: "linda", displayName: "Amenadiel" },
+  { id: 6, username: "ella", displayName: "Ella" },
 ];
 
 app.get("/", (request, response) => {
   response.status(201).send("Hello World!");
 });
 
+// app.get("/api/users", (request, response) => {
+//   console.log(request.query);
+//   const {
+//     query: { filter, value },
+//   } = request;
+//   if (filter && value)
+//     return response.send(
+//       mockUsers.filter((user) => user[filter].includes(value))
+//     );
+//   //In case filter and value are undefined
+//   return response.send(mockUsers);
+// });
+
 app.get("/api/users", (request, response) => {
-  response.send(mockUsers);
+  console.log(request.query);
+  const { filter } = request.query;
+
+  if (!filter) return response.send(mockUsers); // Return all users if no filter is provided
+
+  const filteredUsers = mockUsers.filter(
+    (user) => user.username.includes(filter) // Filter by username
+  );
+
+  return response.send(filteredUsers);
 });
 
 //id here is a route parameter
