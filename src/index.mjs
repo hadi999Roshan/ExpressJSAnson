@@ -5,6 +5,8 @@ import express from "express";
 
 const app = express();
 
+app.use(express.json());
+
 //process is global in node.js and has an object caleed env (environment) , if the PORT object is not assigned, we will assign 3000
 const PORT = process.env.PORT || 3000;
 
@@ -46,6 +48,13 @@ app.get("/api/users", (request, response) => {
   );
 
   return response.send(filteredUsers);
+});
+
+app.post("/api/users", (request, response) => {
+  const { body } = request;
+  const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...body };
+  mockUsers.push(newUser);
+  return response.status(201).send(newUser);
 });
 
 //id here is a route parameter
