@@ -1,7 +1,7 @@
 //We can run this project by typing this command: npm run start:dev
 
 //Importing th express module from the express package
-import express from "express";
+import express, { response } from "express";
 
 const app = express();
 
@@ -75,6 +75,23 @@ app.get("/api/products", (request, response) => {
     { id: 12, username: "chicken breast", price: 12.99 },
     { id: 13, username: "cocacola", price: 0.99 },
   ]);
+});
+
+app.put("/api/users/:id", (request, response) => {
+  const {
+    body,
+    params: { id },
+  } = request;
+  const parsedId = parseInt(id);
+  if (isNaN(parsedId)) return response.sendStatus(400); // Fix typo here
+
+  const findUserIndex = mockUsers.findIndex((user) => user.id === parsedId);
+
+  if (findUserIndex === -1) return response.sendStatus(404);
+
+  // Update the user object
+  mockUsers[findUserIndex] = { id: parsedId, ...body };
+  return response.sendStatus(200);
 });
 
 app.listen(PORT, () => {
