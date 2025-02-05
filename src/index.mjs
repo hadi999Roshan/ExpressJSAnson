@@ -108,6 +108,19 @@ app.patch("/api/users/:id", (request, response) => {
   return response.sendStatus(200);
 });
 
+app.delete("/api/users/:id", (request, response) => {
+  const {
+    params: { id },
+  } = request;
+  const parsedId = parseInt(id);
+  if (isNaN(parsedId)) return response.sendStatus(400);
+  const findUserIndex = mockUsers.findIndex((user) => user.id === parsedId);
+  if (findUserIndex === -1) return response.sendStatus(404);
+  //We pass 1 as the second argument to make sure the splice function only removes one item
+  mockUsers.splice(findUserIndex, 1);
+  return response.sendStatus(200);
+});
+
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
 });
