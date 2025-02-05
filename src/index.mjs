@@ -7,6 +7,31 @@ const app = express();
 
 app.use(express.json());
 
+const loggingMiddleware = (request, response, next) => {
+  console.log(`${request.method} - ${request.url}`);
+  next();
+};
+
+const resolveIndexByUserId = (request, response, next) => {
+  const {
+    body,
+    params: { id },
+  } = request;
+  const parsedId = parseInt(id);
+  if (isNaN(parsedId)) return response.sendStatus(400); // Fix typo here
+
+  const findUserIndex = mockUsers.findIndex((user) => user.id === parsedId);
+
+  if (findUserIndex === -1) return response.sendStatus(404);
+  //Here we attach the findUserIndex property to the request to pass it between middle-wares
+  request.findUserIndex = findUserIndex;
+  //next() can have an argument which can be either null or an error object
+  next();
+};
+
+//The middle-ware applies to all of the end-points if we use it this way, (keep in mind that it has to be used before the routes):
+// app.use(loggingMiddleware);
+
 //process is global in node.js and has an object caleed env (environment) , if the PORT object is not assigned, we will assign 3000
 const PORT = process.env.PORT || 3000;
 
@@ -20,7 +45,8 @@ const mockUsers = [
   { id: 6, username: "ella", displayName: "Ella" },
 ];
 
-app.get("/", (request, response) => {
+//We can pass the middle-ware as an argument to apply it to the function
+app.get("/", loggingMiddleware, (request, response) => {
   response.status(201).send("Hello World!");
 });
 
@@ -37,18 +63,34 @@ app.get("/", (request, response) => {
 //   return response.send(mockUsers);
 // });
 
-app.get("/api/users", (request, response) => {
-  console.log(request.query);
-  const { filter } = request.query;
+app.get(
+  "/api/users",
+  (request, response, next) => {
+    console.log("Users URL");
+    //We have to include next at the end of the middle-ware in order for the application to move down the line otherwise it'll be stuck
+    next();
+  },
+  (request, response, next) => {
+    console.log("Users URL2");
+    next();
+  },
+  (request, response, next) => {
+    console.log("Users URL3");
+    next();
+  },
+  (request, response) => {
+    console.log(request.query);
+    const { filter } = request.query;
 
-  if (!filter) return response.send(mockUsers); // Return all users if no filter is provided
+    if (!filter) return response.send(mockUsers); // Return all users if no filter is provided
 
-  const filteredUsers = mockUsers.filter(
-    (user) => user.username.includes(filter) // Filter by username
-  );
+    const filteredUsers = mockUsers.filter(
+      (user) => user.username.includes(filter) // Filter by username
+    );
 
-  return response.send(filteredUsers);
-});
+    return response.send(filteredUsers);
+  }
+);
 
 app.post("/api/users", (request, response) => {
   const { body } = request;
@@ -58,13 +100,9 @@ app.post("/api/users", (request, response) => {
 });
 
 //id here is a route parameter
-app.get("/api/users/:id", (request, response) => {
-  console.log(request.params);
-  const parsedID = parseInt(request.params.id);
-  console.log(parsedID);
-  if (isNaN(parsedID))
-    return response.status(400).send({ msg: "Bad Request Inavlid ID!" });
-  const findUser = mockUsers.find((user) => user.id === parsedID);
+app.get("/api/users/:id", resolveIndexByUserId, (request, response) => {
+  const { findUserIndex } = request;
+  const findUser = mockUsers[findUserIndex];
   if (!findUser) return response.sendStatus(404);
   return response.send(findUser);
 });
@@ -77,45 +115,21 @@ app.get("/api/products", (request, response) => {
   ]);
 });
 
-app.put("/api/users/:id", (request, response) => {
-  const {
-    body,
-    params: { id },
-  } = request;
-  const parsedId = parseInt(id);
-  if (isNaN(parsedId)) return response.sendStatus(400); // Fix typo here
-
-  const findUserIndex = mockUsers.findIndex((user) => user.id === parsedId);
-
-  if (findUserIndex === -1) return response.sendStatus(404);
-
+app.put("/api/users/:id", resolveIndexByUserId, (request, response) => {
+  const { body, findUserIndex } = request;
   // Update the user object
-  mockUsers[findUserIndex] = { id: parsedId, ...body };
+  mockUsers[findUserIndex] = { id: mockUsers[findUserIndex].id, ...body };
   return response.sendStatus(200);
 });
 
-app.patch("/api/users/:id", (request, response) => {
-  const {
-    body,
-    params: { id },
-  } = request;
-  const parsedId = parseInt(id);
-  if (isNaN(parsedId)) return response.sendStatus(400); // Fix typo here
-
-  const findUserIndex = mockUsers.findIndex((user) => user.id === parsedId);
-  if (findUserIndex === -1) return response.sendStatus(404);
+app.patch("/api/users/:id", resolveIndexByUserId, (request, response) => {
+  const { body, findUserIndex } = request;
   mockUsers[findUserIndex] = { ...mockUsers[findUserIndex], ...body };
   return response.sendStatus(200);
 });
 
-app.delete("/api/users/:id", (request, response) => {
-  const {
-    params: { id },
-  } = request;
-  const parsedId = parseInt(id);
-  if (isNaN(parsedId)) return response.sendStatus(400);
-  const findUserIndex = mockUsers.findIndex((user) => user.id === parsedId);
-  if (findUserIndex === -1) return response.sendStatus(404);
+app.delete("/api/users/:id", resolveIndexByUserId, (request, response) => {
+  const { findUserIndex } = request;
   //We pass 1 as the second argument to make sure the splice function only removes one item
   mockUsers.splice(findUserIndex, 1);
   return response.sendStatus(200);
