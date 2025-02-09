@@ -1,7 +1,18 @@
-//We can run this project by typing this command: npm run start:dev
+//We can run this project by typing this command: (( npm run start:dev ))
 
-//Importing th express module from the express package
+//Importing the express module from the express package
 import express, { response } from "express";
+
+//Importing the query function from express validator
+import {
+  query,
+  validationResult,
+  body,
+  matchedData,
+  checkSchema,
+} from "express-validator";
+
+import { createUserValidationSchema } from "./utils/validationSchemas.mjs";
 
 const app = express();
 
@@ -63,41 +74,62 @@ app.get("/", loggingMiddleware, (request, response) => {
 //   return response.send(mockUsers);
 // });
 
+//When we use a function fron express validator it creates a validation chain which can use as many operations as we want
+//The validators do not throw errors, we have to haqndle them ourselves
 app.get(
   "/api/users",
-  (request, response, next) => {
-    console.log("Users URL");
-    //We have to include next at the end of the middle-ware in order for the application to move down the line otherwise it'll be stuck
-    next();
-  },
-  (request, response, next) => {
-    console.log("Users URL2");
-    next();
-  },
-  (request, response, next) => {
-    console.log("Users URL3");
-    next();
-  },
+  query("filter")
+    .isString()
+    .notEmpty()
+    .withMessage("Must not be empty")
+    .isLength({ min: 3, max: 10 })
+    .withMessage("Must be at least 3-10 characters"),
   (request, response) => {
-    console.log(request.query);
-    const { filter } = request.query;
-
-    if (!filter) return response.send(mockUsers); // Return all users if no filter is provided
-
-    const filteredUsers = mockUsers.filter(
-      (user) => user.username.includes(filter) // Filter by username
-    );
-
-    return response.send(filteredUsers);
+    console.log(request);
+    //The validationResult function makes the validation information appear a bit more appealing
+    const result = validationResult(request);
+    console.log(result);
+    const {
+      query: { filter, value },
+    } = request;
+    if (filter && value)
+      return response.send(
+        mockUsers.filter((user) => user[filter].includes(value))
+      );
+    return response.send(mockUsers);
   }
 );
 
-app.post("/api/users", (request, response) => {
-  const { body } = request;
-  const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...body };
-  mockUsers.push(newUser);
-  return response.status(201).send(newUser);
-});
+app.post(
+  "/api/users",
+  // [
+  //   body("username")
+  //     .notEmpty()
+  //     .withMessage("Username cannot be empty")
+  //     .isLength({ min: 5, max: 32 })
+  //     .withMessage(
+  //       "Username must be at least 5 characters with a maximum of 32 characters"
+  //     )
+  //     .isString()
+  //     .withMessage("Username must be a string"),
+  //   body("displayname").notEmpty(),
+  // ],
+  checkSchema(createUserValidationSchema),
+  (request, response) => {
+    const result = validationResult(request);
+    console.log(result);
+
+    if (!result.isEmpty())
+      return response.status(400).send({ errors: result.array() });
+
+    //Print the validated data
+    const data = matchedData(request);
+
+    const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...data };
+    mockUsers.push(newUser);
+    return response.status(201).send(newUser);
+  }
+);
 
 //id here is a route parameter
 app.get("/api/users/:id", resolveIndexByUserId, (request, response) => {

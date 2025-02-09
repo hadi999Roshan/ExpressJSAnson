@@ -20,6 +20,7 @@
   "homepage": "https://github.com/hadi999Roshan/ExpressJSAnson#readme",
   "dependencies": {
     "express": "^4.21.2",
+    "express-validator": "^7.2.1",
     "nodemon": "^3.1.9"
   },
   "type": "module"
