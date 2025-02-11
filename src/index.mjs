@@ -5,6 +5,8 @@ import express, { response } from "express";
 
 import routes from "./routes/index.mjs";
 
+import cookieParser from "cookie-parser";
+
 //Importing the query function from express validator
 // import {
 //   query,
@@ -26,12 +28,8 @@ import { resolveIndexByUserId } from "./utils/middlewares.mjs";
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser("helloworld"));
 app.use(routes);
-
-const loggingMiddleware = (request, response, next) => {
-  console.log(`${request.method} - ${request.url}`);
-  next();
-};
 
 // const resolveIndexByUserId = (request, response, next) => {
 //   const {
@@ -57,8 +55,9 @@ const loggingMiddleware = (request, response, next) => {
 const PORT = process.env.PORT || 3000;
 
 //We can pass the middle-ware as an argument to apply it to the function
-app.get("/", loggingMiddleware, (request, response) => {
-  response.status(201).send("Hello World!");
+app.get("/", (request, response) => {
+  response.cookie("hello", "world", { maxAge: 30000, signed: true });
+  response.status(201).send({ msg: "Hello" });
 });
 
 // app.get("/api/users", (request, response) => {
@@ -166,6 +165,14 @@ app.get("/api/users/:id", resolveIndexByUserId, (request, response) => {
 //   mockUsers.splice(findUserIndex, 1);
 //   return response.sendStatus(200);
 // });
+
+/* Cookies are small pieces of data that a web server sends to the browser
+Cookies are important because the qweb server can send a cookie to the web browser and then the web browser can send a cookie to the web server anytime it needs to make a request, it is important because by default HTTP is 
+stateless, which means that whenever you send a request the web browser doesn't know where that request is coming from.  
+For instance, when creating an e-commerce website, if we want to implement the feature for the uaser to add items to their cart and for them to still be there when they come back later, we have to use cookies.
+In real-world applications we use cookies along with sessions.
+We can uze the Cookie Parser application to see the cookies in a better format
+*/
 
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
