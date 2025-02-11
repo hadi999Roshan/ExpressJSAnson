@@ -7,6 +7,10 @@ import routes from "./routes/index.mjs";
 
 import cookieParser from "cookie-parser";
 
+import session from "express-session";
+
+import { mockUsers } from "./utils/constants.mjs";
+
 //Importing the query function from express validator
 // import {
 //   query,
@@ -21,13 +25,26 @@ import cookieParser from "cookie-parser";
 // import usersRouter from "./routes/users.mjs";
 // import productsRouter from "./routes/products.mjs";
 
-import { mockUsers } from "./utils/constants.mjs";
-
 import { resolveIndexByUserId } from "./utils/middlewares.mjs";
 
 const app = express();
 
+//We must keep in mind that the session should be called before routes are registered
+//The session function generates a new session id for the user each time that they refresh the page, however, we have to modify the code to make sure unnecessary sessions and ID's aren't generated
 app.use(express.json());
+app.use(
+  session({
+    secret: "anson the dev",
+    saveUninitialized: false,
+    resave: false,
+    cookie: {
+      maxAge: 60000 * 60,
+      //This value is measured in miliseconds
+    },
+  })
+);
+//When you don't want to save unmodified session data to the session sotre, this allows us to avoid making unnecessary saves to the server which would slow it down
+//Resave has to so with forcing a session to be saved back to the session store
 app.use(cookieParser("helloworld"));
 app.use(routes);
 
@@ -56,6 +73,9 @@ const PORT = process.env.PORT || 3000;
 
 //We can pass the middle-ware as an argument to apply it to the function
 app.get("/", (request, response) => {
+  console.log(request.session);
+  console.log(request.session.id);
+  request.session.visited = true;
   response.cookie("hello", "world", { maxAge: 30000, signed: true });
   response.status(201).send({ msg: "Hello" });
 });
@@ -173,6 +193,44 @@ For instance, when creating an e-commerce website, if we want to implement the f
 In real-world applications we use cookies along with sessions.
 We can uze the Cookie Parser application to see the cookies in a better format
 */
+
+app.post("/api/auth", (request, response) => {
+  const {
+    body: { username, password },
+  } = request;
+  const findUser = mockUsers.find((user) => user.username === username);
+  if (!findUser || findUser.password !== password)
+    return response.sendStatus(401).send({ msg: "BAD CREDENTIALS!!" });
+
+  request.session.user = findUser;
+  return response.status(200).send(findUser);
+});
+
+app.get("/api/auth/status", (request, response) => {
+  request.sessionStore.get(request.sessionID, (err, session) => {
+    console.log(session);
+  });
+  return request.session.user
+    ? response.status(200).send(request.session.user)
+    : response.status(401).send({ msg: "Not authenticated" });
+});
+
+app.post("/api/cart", (request, response) => {
+  if (!request.session.user) return response.sendStatus(401);
+  const { body: item } = request;
+  const { cart } = request.session;
+  if (cart) {
+    cart.push(item);
+  } else {
+    request.session.cart = [item];
+  }
+  return response.status(201).send(item);
+});
+
+app.get("/api/cart", (request, response) => {
+  if (!request.session.user) return response.sendStatus(401);
+  return response.send(request.session.cart ?? []);
+});
 
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
