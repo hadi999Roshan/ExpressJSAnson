@@ -13,6 +13,8 @@ import { createUserValidationSchema } from "../utils/validationSchemas.mjs";
 
 import { resolveIndexByUserId } from "../utils/middlewares.mjs";
 
+import { User } from "../mongoose/schemas/user.mjs";
+
 const router = Router();
 
 router.get(
@@ -57,19 +59,19 @@ router.get("/api/users/:id", resolveIndexByUserId, (request, response) => {
 router.post(
   "/api/users",
   checkSchema(createUserValidationSchema),
-  (request, response) => {
+  async (request, response) => {
     const result = validationResult(request);
-    console.log(result);
-
-    if (!result.isEmpty())
-      return response.status(400).send({ errors: result.array() });
-
-    //Print the validated data
+    if (!result.isEmpty()) return response.sendStatus(400).send(result.array());
     const data = matchedData(request);
-
-    const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...data };
-    mockUsers.push(newUser);
-    return response.status(201).send(newUser);
+    console.log(data);
+    const newUser = new User(data);
+    try {
+      const savedUser = await newUser.save();
+      return response.status(201).send(savedUser);
+    } catch (err) {
+      console.error(err);
+      return response.status(400).send(err);
+    }
   }
 );
 

@@ -11,6 +11,12 @@ import session from "express-session";
 
 import { mockUsers } from "./utils/constants.mjs";
 
+import passport from "passport";
+
+import mongoose from "mongoose";
+
+import "./strategies/local-strategy.mjs";
+
 //Importing the query function from express validator
 // import {
 //   query,
@@ -29,6 +35,11 @@ import { resolveIndexByUserId } from "./utils/middlewares.mjs";
 
 const app = express();
 
+mongoose
+  .connect("mongodb://localhost/express_tutorial")
+  .then(() => console.log("Connected to Database"))
+  .catch((err) => console.log(`Error ${err}`));
+
 //We must keep in mind that the session should be called before routes are registered
 //The session function generates a new session id for the user each time that they refresh the page, however, we have to modify the code to make sure unnecessary sessions and ID's aren't generated
 app.use(express.json());
@@ -46,7 +57,17 @@ app.use(
 //When you don't want to save unmodified session data to the session sotre, this allows us to avoid making unnecessary saves to the server which would slow it down
 //Resave has to so with forcing a session to be saved back to the session store
 app.use(cookieParser("helloworld"));
+
+app.use(passport.initialize());
+//Attaching a dynamic property to the user object
+app.use(passport.session());
+
 app.use(routes);
+
+//We must pass the third-party name instead of local as the argument of authenticate if we use those third parties
+app.post("/api/auth", passport.authenticate("local"), (request, response) => {
+  response.sendStatus(200);
+});
 
 // const resolveIndexByUserId = (request, response, next) => {
 //   const {
@@ -67,6 +88,11 @@ app.use(routes);
 
 //The middle-ware applies to all of the end-points if we use it this way, (keep in mind that it has to be used before the routes):
 // app.use(loggingMiddleware);
+
+app.get("api/auth/status", (request, response) => {
+  console.log("Inside /auth/status endpoint");
+  return request.user ? response.send(request.user) : response.sendStatus(401);
+});
 
 //process is global in node.js and has an object caleed env (environment) , if the PORT object is not assigned, we will assign 3000
 const PORT = process.env.PORT || 3000;
