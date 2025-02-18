@@ -17,20 +17,6 @@ import mongoose from "mongoose";
 
 import "./strategies/local-strategy.mjs";
 
-//Importing the query function from express validator
-// import {
-//   query,
-//   validationResult,
-//   body,
-//   matchedData,
-//   checkSchema,
-// } from "express-validator";
-
-// import { createUserValidationSchema } from "./utils/validationSchemas.mjs";
-
-// import usersRouter from "./routes/users.mjs";
-// import productsRouter from "./routes/products.mjs";
-
 import { resolveIndexByUserId } from "./utils/middlewares.mjs";
 
 const app = express();
@@ -69,6 +55,87 @@ app.post("/api/auth", passport.authenticate("local"), (request, response) => {
   response.sendStatus(200);
 });
 
+app.get("api/auth/status", (request, response) => {
+  console.log("Inside /auth/status endpoint");
+  return request.user ? response.send(request.user) : response.sendStatus(401);
+});
+
+//process is global in node.js and has an object caleed env (environment) , if the PORT object is not assigned, we will assign 3000
+const PORT = process.env.PORT || 3000;
+
+//We can pass the middle-ware as an argument to apply it to the function
+app.get("/", (request, response) => {
+  console.log(request.session);
+  console.log(request.session.id);
+  request.session.visited = true;
+  response.cookie("hello", "world", { maxAge: 30000, signed: true });
+  response.status(201).send({ msg: "Hello" });
+});
+
+//id here is a route parameter
+app.get("/api/users/:id", resolveIndexByUserId, (request, response) => {
+  const { findUserIndex } = request;
+  const findUser = mockUsers[findUserIndex];
+  if (!findUser) return response.sendStatus(404);
+  return response.send(findUser);
+});
+
+app.post("/api/auth", (request, response) => {
+  const {
+    body: { username, password },
+  } = request;
+  const findUser = mockUsers.find((user) => user.username === username);
+  if (!findUser || findUser.password !== password)
+    return response.sendStatus(401).send({ msg: "BAD CREDENTIALS!!" });
+
+  request.session.user = findUser;
+  return response.status(200).send(findUser);
+});
+
+app.get("/api/auth/status", (request, response) => {
+  request.sessionStore.get(request.sessionID, (err, session) => {
+    console.log(session);
+  });
+  return request.session.user
+    ? response.status(200).send(request.session.user)
+    : response.status(401).send({ msg: "Not authenticated" });
+});
+
+app.post("/api/cart", (request, response) => {
+  if (!request.session.user) return response.sendStatus(401);
+  const { body: item } = request;
+  const { cart } = request.session;
+  if (cart) {
+    cart.push(item);
+  } else {
+    request.session.cart = [item];
+  }
+  return response.status(201).send(item);
+});
+
+app.get("/api/cart", (request, response) => {
+  if (!request.session.user) return response.sendStatus(401);
+  return response.send(request.session.cart ?? []);
+});
+
+app.listen(PORT, () => {
+  console.log(`Running on port ${PORT}`);
+});
+
+//Importing the query function from express validator
+// import {
+//   query,
+//   validationResult,
+//   body,
+//   matchedData,
+//   checkSchema,
+// } from "express-validator";
+
+// import { createUserValidationSchema } from "./utils/validationSchemas.mjs";
+
+// import usersRouter from "./routes/users.mjs";
+// import productsRouter from "./routes/products.mjs";
+
 // const resolveIndexByUserId = (request, response, next) => {
 //   const {
 //     body,
@@ -88,23 +155,6 @@ app.post("/api/auth", passport.authenticate("local"), (request, response) => {
 
 //The middle-ware applies to all of the end-points if we use it this way, (keep in mind that it has to be used before the routes):
 // app.use(loggingMiddleware);
-
-app.get("api/auth/status", (request, response) => {
-  console.log("Inside /auth/status endpoint");
-  return request.user ? response.send(request.user) : response.sendStatus(401);
-});
-
-//process is global in node.js and has an object caleed env (environment) , if the PORT object is not assigned, we will assign 3000
-const PORT = process.env.PORT || 3000;
-
-//We can pass the middle-ware as an argument to apply it to the function
-app.get("/", (request, response) => {
-  console.log(request.session);
-  console.log(request.session.id);
-  request.session.visited = true;
-  response.cookie("hello", "world", { maxAge: 30000, signed: true });
-  response.status(201).send({ msg: "Hello" });
-});
 
 // app.get("/api/users", (request, response) => {
 //   console.log(request.query);
@@ -176,14 +226,6 @@ app.get("/", (request, response) => {
 //   }
 // );
 
-//id here is a route parameter
-app.get("/api/users/:id", resolveIndexByUserId, (request, response) => {
-  const { findUserIndex } = request;
-  const findUser = mockUsers[findUserIndex];
-  if (!findUser) return response.sendStatus(404);
-  return response.send(findUser);
-});
-
 // app.get("/api/products", (request, response) => {
 //   response.send([
 //     { id: 11, username: "french fries", price: 5.99 },
@@ -217,47 +259,5 @@ Cookies are important because the qweb server can send a cookie to the web brows
 stateless, which means that whenever you send a request the web browser doesn't know where that request is coming from.  
 For instance, when creating an e-commerce website, if we want to implement the feature for the uaser to add items to their cart and for them to still be there when they come back later, we have to use cookies.
 In real-world applications we use cookies along with sessions.
-We can uze the Cookie Parser application to see the cookies in a better format
+We can use the Cookie Parser application to see the cookies in a better format
 */
-
-app.post("/api/auth", (request, response) => {
-  const {
-    body: { username, password },
-  } = request;
-  const findUser = mockUsers.find((user) => user.username === username);
-  if (!findUser || findUser.password !== password)
-    return response.sendStatus(401).send({ msg: "BAD CREDENTIALS!!" });
-
-  request.session.user = findUser;
-  return response.status(200).send(findUser);
-});
-
-app.get("/api/auth/status", (request, response) => {
-  request.sessionStore.get(request.sessionID, (err, session) => {
-    console.log(session);
-  });
-  return request.session.user
-    ? response.status(200).send(request.session.user)
-    : response.status(401).send({ msg: "Not authenticated" });
-});
-
-app.post("/api/cart", (request, response) => {
-  if (!request.session.user) return response.sendStatus(401);
-  const { body: item } = request;
-  const { cart } = request.session;
-  if (cart) {
-    cart.push(item);
-  } else {
-    request.session.cart = [item];
-  }
-  return response.status(201).send(item);
-});
-
-app.get("/api/cart", (request, response) => {
-  if (!request.session.user) return response.sendStatus(401);
-  return response.send(request.session.cart ?? []);
-});
-
-app.listen(PORT, () => {
-  console.log(`Running on port ${PORT}`);
-});
